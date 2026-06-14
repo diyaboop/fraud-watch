@@ -1,0 +1,6 @@
+card6,total_transactions,legitimate_transactions,fraud_transactions,false_positive_rate,false_negative_rate,recall
+-1,331.0,323.0,8.0,0.4365,0.125,0.875
+0,2.0,2.0,0.0,0.5,0.0,0.0
+1,29703.0,27738.0,1965.0,0.5682,0.0244,0.9756
+2,88067.0,85907.0,2160.0,0.3431,0.1236,0.8764
+3,5.0,5.0,0.0,0.0,0.0,0.0

@@ -1,0 +1,6 @@
+ProductCD,total_transactions,legitimate_transactions,fraud_transactions,false_positive_rate,false_negative_rate,recall
+0,13532.0,11941.0,1591.0,0.8226,0.0038,0.9962
+1,6599.0,6259.0,340.0,0.6589,0.0,1.0
+2,7448.0,7176.0,272.0,0.5295,0.0441,0.9559
+3,2309.0,2159.0,150.0,0.4599,0.02,0.98
+4,88220.0,86440.0,1780.0,0.3081,0.1657,0.8343
