@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FraudWatch Dashboard</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2d3e;
+      --text: #e2e8f0;
+      --muted: #8892a4;
+      --green: #1D9E75;
+      --orange: #D85A30;
+      --purple: #534AB7;
+      --accent: #3b82f6;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      /* room for sticky footer */
+      padding-bottom: 52px;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    header .logo {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: var(--text);
+    }
+
+    header .logo span { color: var(--orange); }
+
+    header .badge {
+      font-size: 11px;
+      background: var(--border);
+      color: var(--muted);
+      padding: 2px 8px;
+      border-radius: 99px;
+    }
+
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      display: flex;
+      gap: 4px;
+    }
+
+    nav button {
+      background: none;
+      border: none;
+      color: var(--muted);
+      padding: 12px 16px;
+      cursor: pointer;
+      font-size: 13px;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+
+    nav button:hover { color: var(--text); }
+    nav button.active {
+      color: var(--text);
+      border-bottom-color: var(--accent);
+    }
+
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px;
+    }
+
+    .section { display: none; }
+    .section.visible { display: block; }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .section-sub {
+      color: var(--muted);
+      margin-bottom: 24px;
+      font-size: 13px;
+    }
+
+    /* KPI grid */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .kpi {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+    }
+
+    .kpi-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .kpi-value {
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1.1;
+    }
+
+    .kpi-value.green  { color: var(--green); }
+    .kpi-value.orange { color: var(--orange); }
+    .kpi-value.purple { color: var(--purple); }
+    .kpi-value.blue   { color: var(--accent); }
+
+    /* Plain-English KPI interpretation line */
+    .kpi-interp {
+      font-size: 10.5px;
+      color: var(--muted);
+      margin-top: 7px;
+      line-height: 1.4;
+      border-top: 1px solid var(--border);
+      padding-top: 7px;
+    }
+
+    /* Compliance status card */
+    .compliance-card {
+      background: var(--surface);
+      border-radius: 10px;
+      padding: 18px 22px;
+      display: flex;
+      align-items: flex-start;
+      gap: 18px;
+      margin-bottom: 28px;
+      border: 1px solid var(--border);
+    }
+
+    .compliance-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 3px;
+    }
+    .compliance-dot.red    { background: #e53e3e; box-shadow: 0 0 8px rgba(229,62,62,0.5); }
+    .compliance-dot.amber  { background: #d69e2e; box-shadow: 0 0 8px rgba(214,158,46,0.5); }
+    .compliance-dot.green  { background: var(--green); box-shadow: 0 0 8px rgba(29,158,117,0.5); }
+
+    .compliance-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+
+    .compliance-status {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .compliance-status.red   { color: #e53e3e; }
+    .compliance-status.amber { color: #d69e2e; }
+    .compliance-status.green { color: var(--green); }
+
+    .compliance-explain {
+      font-size: 12.5px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* Chart card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .chart-img {
+      width: 100%;
+      border-radius: 6px;
+    }
+
+    /* Key finding callout */
+    .callout {
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin-bottom: 20px;
+      border-left: 4px solid var(--orange);
+      background: rgba(216,90,48,0.08);
+    }
+
+    .callout-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--orange);
+      margin-bottom: 5px;
+    }
+
+    .callout-body {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    /* Regulatory badges */
+    .reg-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      margin-left: 5px;
+      vertical-align: middle;
+      letter-spacing: 0.04em;
+    }
+
+    .reg-ecoa    { background: rgba(83,74,183,0.25); color: #9d96f5; border: 1px solid rgba(83,74,183,0.4); }
+    .reg-euai    { background: rgba(59,130,246,0.2); color: #7eb5f5; border: 1px solid rgba(59,130,246,0.35); }
+    .reg-cfpb    { background: rgba(29,158,117,0.2); color: #5dccaa; border: 1px solid rgba(29,158,117,0.35); }
+    .reg-sr117   { background: rgba(216,90,48,0.2);  color: #f0956a; border: 1px solid rgba(216,90,48,0.35); }
+
+    /* Findings table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th {
+      text-align: left;
+      color: var(--muted);
+      font-weight: 500;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .pill-red    { background: rgba(216,90,48,0.15);  color: var(--orange); }
+    .pill-green  { background: rgba(29,158,117,0.15); color: var(--green); }
+    .pill-blue   { background: rgba(59,130,246,0.15); color: var(--accent); }
+    .pill-amber  { background: rgba(214,158,46,0.15); color: #d69e2e; }
+
+    /* Drift / monitor alerts */
+    .alert-box {
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+
+    .alert-ok   { background: rgba(29,158,117,0.1);  border: 1px solid rgba(29,158,117,0.3);  color: var(--green); }
+    .alert-warn { background: rgba(216,90,48,0.1);   border: 1px solid rgba(216,90,48,0.3);   color: var(--orange); }
+
+    /* Monitor plain-English banner */
+    .monitor-banner {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .monitor-banner-icon {
+      font-size: 26px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .monitor-banner-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .monitor-banner-sub {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* Predict form */
+    .predict-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+    }
+
+    .field input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+
+    .field input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 10px 22px;
+      border-radius: 7px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.5; cursor: default; }
+
+    .predict-result {
+      margin-top: 20px;
+      display: none;
+    }
+
+    .risk-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      display: flex;
+      align-items: flex-start;
+      gap: 24px;
+    }
+
+    .risk-score {
+      font-size: 48px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .risk-label { font-size: 18px; font-weight: 700; margin-top: 4px; }
+    .risk-sub   { color: var(--muted); font-size: 13px; margin-top: 6px; }
+
+    /* Bias context box inside predict result */
+    .bias-context {
+      margin-top: 14px;
+      background: rgba(83,74,183,0.08);
+      border: 1px solid rgba(83,74,183,0.25);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 12.5px;
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .bias-context-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #9d96f5;
+      margin-bottom: 6px;
+    }
+
+    .bias-context-item {
+      margin-bottom: 4px;
+      padding-left: 12px;
+      position: relative;
+    }
+
+    .bias-context-item::before {
+      content: "›";
+      position: absolute;
+      left: 0;
+      color: #9d96f5;
+      font-weight: 700;
+    }
+
+    .loader {
+      display: none;
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 8px;
+    }
+
+    /* ── Sticky footer ─────────────────────────────────────────────────────── */
+    .sticky-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 0 32px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 0;
+      font-size: 11.5px;
+      color: var(--muted);
+      z-index: 100;
+    }
+
+    .footer-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 18px 0 0;
+      margin-right: 18px;
+      border-right: 1px solid var(--border);
+    }
+
+    .footer-item:last-child {
+      border-right: none;
+      margin-left: auto;
+      padding-right: 0;
+    }
+
+    .footer-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .footer-dot.red   { background: #e53e3e; }
+    .footer-dot.amber { background: #d69e2e; }
+    .footer-dot.green { background: var(--green); }
+
+    .footer-label { color: var(--border); margin-right: 4px; text-transform: uppercase; letter-spacing: 0.06em; font-size: 10px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Fraud<span>Watch</span></div>
+  <div class="badge">IEEE-CIS · Random Forest · v1.0</div>
+</header>
+
+<nav>
+  <button class="active" onclick="show('overview', this)">Overview</button>
+  <button onclick="show('audit', this)">Bias Audit</button>
+  <button onclick="show('monitor', this)">Monitor</button>
+  <button onclick="show('predict', this)">Predict</button>
+</nav>
+
+<main>
+
+  <!-- ── OVERVIEW ─────────────────────────────────────────────────────────── -->
+  <section id="overview" class="section visible">
+    <div class="section-title">Model Overview</div>
+    <div class="section-sub">Key performance metrics across the full test set (12 simulated weeks)</div>
+
+    <div class="kpi-grid" id="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">Avg Recall</div>
+        <div class="kpi-value green" id="kpi-recall">—</div>
+        <div class="kpi-interp" id="kpi-recall-interp"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Avg Precision</div>
+        <div class="kpi-value purple" id="kpi-precision">—</div>
+        <div class="kpi-interp" id="kpi-precision-interp"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Avg FPR</div>
+        <div class="kpi-value orange" id="kpi-fpr">—</div>
+        <div class="kpi-interp" id="kpi-fpr-interp"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Total Transactions</div>
+        <div class="kpi-value blue" id="kpi-total">—</div>
+        <div class="kpi-interp">Full test set scored by the model</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Fraud Cases</div>
+        <div class="kpi-value orange" id="kpi-fraud">—</div>
+        <div class="kpi-interp" id="kpi-fraud-interp"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Flagged</div>
+        <div class="kpi-value" id="kpi-flagged">—</div>
+        <div class="kpi-interp" id="kpi-flagged-interp"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Drift Weeks</div>
+        <div class="kpi-value" id="kpi-drift">—</div>
+        <div class="kpi-interp" id="kpi-drift-interp"></div>
+      </div>
+    </div>
+
+    <!-- Compliance status card -->
+    <div class="compliance-card" id="compliance-card">
+      <div class="compliance-dot" id="compliance-dot"></div>
+      <div>
+        <div class="compliance-label">Compliance Status</div>
+        <div class="compliance-status" id="compliance-status">—</div>
+        <div class="compliance-explain" id="compliance-explain"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Key Bias Findings</div>
+      <table id="findings-table">
+        <thead>
+          <tr>
+            <th>Segment</th>
+            <th>Group A</th>
+            <th>FPR A</th>
+            <th>Group B</th>
+            <th>FPR B</th>
+            <th>Z-stat</th>
+            <th>Significant</th>
+            <th>Regulation</th>
+          </tr>
+        </thead>
+        <tbody id="findings-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── BIAS AUDIT ────────────────────────────────────────────────────────── -->
+  <section id="audit" class="section">
+    <div class="section-title">Bias Audit</div>
+    <div class="section-sub">False positive rate disparities across card type, product category, and billing region</div>
+
+    <!-- Key finding callout -->
+    <div class="callout">
+      <div class="callout-title">⚠ Key Finding</div>
+      <div class="callout-body">
+        Credit card holders face a <strong>65% higher wrongful block rate</strong> than debit card
+        holders (56.8% vs 34.3% FPR, Z=66.6, p&lt;0.001). Transactions classified as ProductCD=0
+        are flagged at <strong>2.7× the rate</strong> of ProductCD=4 (82.3% vs 30.8%).
+        Non-US billing addresses show FPR of <strong>77–85%</strong> versus 34.8% for US.
+        These disparities may constitute <strong>disparate impact under ECOA</strong> and trigger
+        obligations under the EU AI Act (Art. 9–13) and CFPB UDAAP guidance.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Overall FPR: <span id="overall-fpr">—</span></div>
+      <img id="audit-chart" class="chart-img" alt="Bias audit chart" />
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        FPR by Card Type (card6)
+        <span class="reg-badge reg-ecoa">ECOA</span>
+        <span class="reg-badge reg-euai">EU AI Act</span>
+      </div>
+      <table id="card6-table">
+        <thead><tr><th>Card Type</th><th>FPR</th><th>vs Overall</th><th>Plain English</th></tr></thead>
+        <tbody id="card6-body"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        FPR by Billing Region
+        <span class="reg-badge reg-cfpb">CFPB</span>
+        <span class="reg-badge reg-euai">EU AI Act</span>
+      </div>
+      <table id="region-table">
+        <thead><tr><th>Region</th><th>FPR</th><th>vs Overall</th><th>Plain English</th></tr></thead>
+        <tbody id="region-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── MONITOR ───────────────────────────────────────────────────────────── -->
+  <section id="monitor" class="section">
+    <div class="section-title">Performance Monitor</div>
+    <div class="section-sub">Weekly recall, precision, and false positive rate across 12 simulated weeks</div>
+
+    <!-- Plain-English status banner -->
+    <div class="monitor-banner" id="monitor-banner">
+      <div class="monitor-banner-icon" id="monitor-banner-icon">—</div>
+      <div>
+        <div class="monitor-banner-title" id="monitor-banner-title">Loading…</div>
+        <div class="monitor-banner-sub" id="monitor-banner-sub"></div>
+      </div>
+    </div>
+
+    <div id="drift-alert"></div>
+
+    <div class="card">
+      <div class="card-title">Weekly Metrics Chart</div>
+      <img id="monitor-chart" class="chart-img" alt="Monitor chart" />
+    </div>
+
+    <div class="card">
+      <div class="card-title">Weekly Breakdown</div>
+      <table id="monitor-table">
+        <thead>
+          <tr>
+            <th>Week</th><th>Fraud Cases</th><th>Flagged</th>
+            <th>Precision</th><th>Recall</th><th>FPR</th><th>Drift</th>
+          </tr>
+        </thead>
+        <tbody id="monitor-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── PREDICT ───────────────────────────────────────────────────────────── -->
+  <section id="predict" class="section">
+    <div class="section-title">Score a Transaction</div>
+    <div class="section-sub">Enter transaction features to get a real-time fraud probability from the trained model</div>
+
+    <div class="card">
+      <div class="predict-grid">
+        <div class="field"><label>Transaction Amount</label><input id="f-amt" type="number" value="100" /></div>
+        <div class="field"><label>ProductCD (0-4)</label><input id="f-pcd" type="number" value="0" /></div>
+        <div class="field"><label>card4 (brand 0-3)</label><input id="f-c4" type="number" value="0" /></div>
+        <div class="field"><label>card6 (1=Credit 2=Debit)</label><input id="f-c6" type="number" value="2" /></div>
+        <div class="field"><label>addr2 (87=US)</label><input id="f-a2" type="number" value="87" /></div>
+        <div class="field"><label>C1</label><input id="f-C1" type="number" value="1" /></div>
+        <div class="field"><label>C2</label><input id="f-C2" type="number" value="1" /></div>
+        <div class="field"><label>C6</label><input id="f-C6" type="number" value="1" /></div>
+        <div class="field"><label>C9</label><input id="f-C9" type="number" value="1" /></div>
+        <div class="field"><label>D1</label><input id="f-D1" type="number" value="0" /></div>
+      </div>
+      <button class="btn" onclick="runPredict()">Score Transaction</button>
+      <div class="loader" id="pred-loader">Scoring…</div>
+
+      <div class="predict-result" id="pred-result">
+        <div class="risk-card">
+          <div style="flex:1">
+            <div style="display:flex;align-items:flex-start;gap:20px">
+              <div>
+                <div class="risk-score" id="pred-score">—</div>
+                <div class="risk-label" id="pred-label">—</div>
+                <div class="risk-sub" id="pred-sub">—</div>
+              </div>
+            </div>
+            <!-- Bias segment context -->
+            <div class="bias-context" id="bias-context" style="display:none">
+              <div class="bias-context-title">Bias Segment Context</div>
+              <div id="bias-context-items"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ── Sticky footer ────────────────────────────────────────────────────────── -->
+<div class="sticky-footer">
+  <div class="footer-item">
+    <span class="footer-label">Model trained</span>
+    <span id="footer-trained">—</span>
+  </div>
+  <div class="footer-item">
+    <span class="footer-label">Last audit</span>
+    <span id="footer-audit">—</span>
+  </div>
+  <div class="footer-item">
+    <span class="footer-label">Monitoring</span>
+    <span id="footer-monitor">—</span>
+  </div>
+  <div class="footer-item">
+    <div class="footer-dot" id="footer-compliance-dot"></div>
+    <span class="footer-label" style="margin-left:4px">Compliance</span>
+    <span id="footer-compliance-text">—</span>
+  </div>
+</div>
+
+<script>
+  const BASE = "";
+  // Cache audit data for use in predict bias context
+  let _auditData = null;
+  // Cache metrics for compliance status
+  let _metricsData = null;
+
+  function show(id, btn) {
+    document.querySelectorAll(".section").forEach(s => s.classList.remove("visible"));
+    document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+    document.getElementById(id).classList.add("visible");
+    btn.classList.add("active");
+  }
+
+  function pct(v) { return (v * 100).toFixed(1) + "%"; }
+  function num(v)  { return Number(v).toLocaleString(); }
+
+  // ── KPI plain-English interpretations ──────────────────────────────────────
+  function kpiInterp(key, value, extra) {
+    const r = Math.round(value * 100);
+    const mapping = {
+      recall:    `Of every 100 fraud cases, the model catches ${r}`,
+      precision: `Of every 100 flagged transactions, only ${r} are actual fraud`,
+      fpr:       `Of every 100 legitimate transactions, ${r} are wrongly flagged`,
+      fraud:     `${pct(extra)} of all transactions — the minority class`,
+      flagged:   `${extra} false positives included (legitimate but blocked)`,
+      drift:     value === 0 ? "Model accuracy is stable — no warning weeks" : `${value} week(s) fell below acceptable thresholds`,
+    };
+    return mapping[key] || "";
+  }
+
+  // ── Compliance RAG status ───────────────────────────────────────────────────
+  function setComplianceStatus(auditData) {
+    const overall = auditData.overall_fpr;
+    const threshold2x = overall * 2;
+
+    // Collect all segment FPRs
+    const allFprs = [
+      ...auditData.card6.map(r => ({ group: r.group, fpr: r.fpr, segment: "Card Type" })),
+      ...auditData.region.map(r => ({ group: r.group, fpr: r.fpr, segment: "Billing Region" })),
+    ];
+
+    const breaches = allFprs.filter(r => r.fpr > threshold2x);
+
+    let status, colorClass, explanation;
+
+    if (breaches.length > 0) {
+      status = "RED — Compliance Action Required";
+      colorClass = "red";
+      const names = breaches.map(b => `${b.group} (${pct(b.fpr)}, ${b.segment})`).join("; ");
+      explanation = `${breaches.length} segment(s) exceed 2× the overall FPR of ${pct(overall)}: ${names}. `
+        + `This level of disparity likely constitutes disparate impact under ECOA and should be reviewed before production deployment.`;
+    } else {
+      const elevated = allFprs.filter(r => r.fpr > overall * 1.5);
+      if (elevated.length > 0) {
+        status = "AMBER — Monitor Closely";
+        colorClass = "amber";
+        explanation = `No segment exceeds the 2× threshold, but ${elevated.length} segment(s) are more than 50% above the overall FPR. Schedule a bias review.`;
+      } else {
+        status = "GREEN — Within Acceptable Bounds";
+        colorClass = "green";
+        explanation = `All segments are within 1.5× the overall FPR of ${pct(overall)}. Continue routine monitoring.`;
+      }
+    }
+
+    const dot = document.getElementById("compliance-dot");
+    dot.className = `compliance-dot ${colorClass}`;
+    const statusEl = document.getElementById("compliance-status");
+    statusEl.textContent = status;
+    statusEl.className = `compliance-status ${colorClass}`;
+    document.getElementById("compliance-explain").textContent = explanation;
+
+    // Sticky footer
+    document.getElementById("footer-compliance-dot").className = `footer-dot ${colorClass}`;
+    document.getElementById("footer-compliance-text").textContent =
+      colorClass === "red" ? "RED — Action Required" :
+      colorClass === "amber" ? "AMBER — Monitor" : "GREEN — OK";
+  }
+
+  // ── Overview ──────────────────────────────────────────────────────────────
+  async function loadOverview() {
+    const [m, a] = await Promise.all([
+      fetch(`${BASE}/metrics`).then(r => r.json()),
+      fetch(`${BASE}/audit`).then(r => r.json()),
+    ]);
+
+    _metricsData = m;
+    _auditData   = a;
+
+    document.getElementById("kpi-recall").textContent    = pct(m.avg_recall);
+    document.getElementById("kpi-precision").textContent = pct(m.avg_precision);
+    document.getElementById("kpi-fpr").textContent       = pct(m.avg_fpr);
+    document.getElementById("kpi-total").textContent     = num(m.total_transactions);
+    document.getElementById("kpi-fraud").textContent     = num(m.total_fraud_cases);
+    document.getElementById("kpi-flagged").textContent   = num(m.total_flagged);
+    document.getElementById("kpi-drift").textContent     = m.drift_weeks + " / " + m.weeks;
+
+    // Interpretations
+    document.getElementById("kpi-recall-interp").textContent    = kpiInterp("recall",    m.avg_recall);
+    document.getElementById("kpi-precision-interp").textContent = kpiInterp("precision", m.avg_precision);
+    document.getElementById("kpi-fpr-interp").textContent       = kpiInterp("fpr",       m.avg_fpr);
+    document.getElementById("kpi-fraud-interp").textContent     = kpiInterp("fraud",     m.total_fraud_cases, m.total_fraud_cases / m.total_transactions);
+    const fps = m.total_flagged - m.total_fraud_cases;  // rough false positive count
+    document.getElementById("kpi-flagged-interp").textContent   = kpiInterp("flagged",   m.total_flagged, num(fps));
+    document.getElementById("kpi-drift-interp").textContent     = kpiInterp("drift",     m.drift_weeks);
+
+    // Compliance card
+    setComplianceStatus(a);
+
+    // Findings table — now with Regulation column
+    const tbody = document.getElementById("findings-body");
+    tbody.innerHTML = "";
+    const regMap = {
+      card6:     '<span class="reg-badge reg-ecoa">ECOA</span><span class="reg-badge reg-euai">EU AI Act</span>',
+      ProductCD: '<span class="reg-badge reg-cfpb">CFPB</span><span class="reg-badge reg-euai">EU AI Act</span>',
+    };
+    for (const row of a.bias_summary) {
+      const sig = row.significant
+        ? '<span class="pill pill-red">Yes ✕</span>'
+        : '<span class="pill pill-green">No</span>';
+      const reg = regMap[row.segment] || "—";
+      tbody.innerHTML += `<tr>
+        <td>${row.segment}</td>
+        <td>${row.group_a}</td>
+        <td>${pct(row.fpr_a)}</td>
+        <td>${row.group_b}</td>
+        <td>${pct(row.fpr_b)}</td>
+        <td>${row.z_stat}</td>
+        <td>${sig}</td>
+        <td>${reg}</td>
+      </tr>`;
+    }
+
+    // Footer metadata
+    document.getElementById("footer-trained").textContent = "June 2026";
+    document.getElementById("footer-audit").textContent   = "June 2026";
+  }
+
+  // ── Audit ─────────────────────────────────────────────────────────────────
+  async function loadAudit() {
+    const a = await fetch(`${BASE}/audit`).then(r => r.json());
+    if (!_auditData) _auditData = a;
+
+    document.getElementById("overall-fpr").textContent = pct(a.overall_fpr);
+    document.getElementById("audit-chart").src = "data:image/png;base64," + a.chart_png_b64;
+
+    const c6body = document.getElementById("card6-body");
+    c6body.innerHTML = "";
+    const card6Plain = {
+      Credit: `Of every 100 legitimate credit card transactions, ${Math.round(0.568 * 100)} are wrongly blocked`,
+      Debit:  `Of every 100 legitimate debit card transactions, ${Math.round(0.343 * 100)} are wrongly blocked`,
+    };
+    for (const row of a.card6) {
+      const diff   = ((row.fpr - a.overall_fpr) * 100).toFixed(1);
+      const cls    = diff > 0 ? "pill-red" : "pill-green";
+      const plain  = card6Plain[row.group] || "";
+      c6body.innerHTML += `<tr>
+        <td>${row.group}</td>
+        <td>${pct(row.fpr)}</td>
+        <td><span class="pill ${cls}">${diff > 0 ? "+" : ""}${diff}pp</span></td>
+        <td style="color:var(--muted);font-size:12px">${plain}</td>
+      </tr>`;
+    }
+
+    const rbody = document.getElementById("region-body");
+    rbody.innerHTML = "";
+    const regionPlain = {
+      "US":        "Baseline — 35 of every 100 legitimate US transactions are wrongly blocked",
+      "Unknown":   "77–85 of every 100 legitimate non-US transactions are wrongly blocked",
+      "Region 60": "Elevated block rate vs US baseline",
+      "Region 96": "Elevated block rate vs US baseline",
+    };
+    for (const row of a.region) {
+      const diff  = ((row.fpr - a.overall_fpr) * 100).toFixed(1);
+      const cls   = diff > 0 ? "pill-red" : "pill-green";
+      const plain = regionPlain[row.group] || "";
+      rbody.innerHTML += `<tr>
+        <td>${row.group}</td>
+        <td>${pct(row.fpr)}</td>
+        <td><span class="pill ${cls}">${diff > 0 ? "+" : ""}${diff}pp</span></td>
+        <td style="color:var(--muted);font-size:12px">${plain}</td>
+      </tr>`;
+    }
+  }
+
+  // ── Monitor ───────────────────────────────────────────────────────────────
+  async function loadMonitor() {
+    const m = await fetch(`${BASE}/monitor`).then(r => r.json());
+
+    // Plain-English status banner
+    const bannerIcon  = document.getElementById("monitor-banner-icon");
+    const bannerTitle = document.getElementById("monitor-banner-title");
+    const bannerSub   = document.getElementById("monitor-banner-sub");
+
+    if (m.drift_weeks.length === 0) {
+      bannerIcon.textContent  = "✅";
+      bannerTitle.textContent = "No drift detected — model is performing stably.";
+      bannerSub.textContent   = `Recall held above ${(m.recall_threshold * 100).toFixed(0)}% and FPR stayed below ${(m.fpr_threshold * 100).toFixed(0)}% across all 12 simulated weeks. Last audit: June 2026.`;
+    } else {
+      bannerIcon.textContent  = "⚠️";
+      bannerTitle.textContent = `Drift detected in ${m.drift_weeks.length} week(s) — model review recommended.`;
+      bannerSub.textContent   = `Weeks ${m.drift_weeks.join(", ")} fell below recall threshold of ${m.recall_threshold} or exceeded FPR threshold of ${m.fpr_threshold}. Last audit: June 2026.`;
+    }
+
+    document.getElementById("monitor-chart").src = "data:image/png;base64," + m.chart_png_b64;
+
+    const alertEl = document.getElementById("drift-alert");
+    if (m.drift_weeks.length === 0) {
+      alertEl.innerHTML = '<div class="alert-box alert-ok">✓ No drift detected — model performing stably across all weeks</div>';
+    } else {
+      alertEl.innerHTML = `<div class="alert-box alert-warn">⚠ Drift detected in weeks: ${m.drift_weeks.join(", ")} (recall < ${m.recall_threshold} or FPR > ${m.fpr_threshold})</div>`;
+    }
+
+    // Footer
+    document.getElementById("footer-monitor").textContent =
+      m.drift_weeks.length === 0 ? "Stable (12/12 weeks)" : `Drift in ${m.drift_weeks.length} week(s)`;
+
+    const tbody = document.getElementById("monitor-body");
+    tbody.innerHTML = "";
+    for (const row of m.weekly) {
+      const driftBadge = row.drift_flag
+        ? '<span class="pill pill-red">Alert</span>'
+        : '<span class="pill pill-green">OK</span>';
+      tbody.innerHTML += `<tr>
+        <td>Week ${row.week}</td>
+        <td>${num(row.fraud_cases)}</td>
+        <td>${num(row.flagged_transactions)}</td>
+        <td>${pct(row.precision)}</td>
+        <td>${pct(row.recall)}</td>
+        <td>${pct(row.fpr)}</td>
+        <td>${driftBadge}</td>
+      </tr>`;
+    }
+  }
+
+  // ── Predict — bias segment context ───────────────────────────────────────
+  function getBiasContext(inputs, overall_fpr) {
+    const card6Val = inputs.card6;
+    const pcdVal   = inputs.ProductCD;
+    const addr2Val = inputs.addr2;
+    const lines    = [];
+
+    // card6 context
+    if (card6Val === 1) {
+      const fpr = 0.568, avg = overall_fpr || 0.398;
+      const diff = ((fpr - avg) * 100).toFixed(0);
+      lines.push(`This transaction uses a <strong>Credit card</strong> (card6=1) — `
+        + `this segment has a <strong>56.8% false positive rate</strong>, `
+        + `${diff}pp above the overall average. `
+        + `<span class="reg-badge reg-ecoa">ECOA risk</span>`);
+    } else if (card6Val === 2) {
+      lines.push(`This transaction uses a <strong>Debit card</strong> (card6=2) — `
+        + `FPR is 34.3%, below the overall average. Lower wrongful-block risk.`);
+    }
+
+    // ProductCD context
+    if (pcdVal === 0) {
+      lines.push(`Product category <strong>0</strong> has an 82.3% FPR — the highest of any category, `
+        + `2.7× higher than category 4. <span class="reg-badge reg-cfpb">CFPB risk</span>`);
+    } else if (pcdVal === 4) {
+      lines.push(`Product category <strong>4</strong> has a 30.8% FPR — one of the lowest, below average.`);
+    } else if (pcdVal >= 1 && pcdVal <= 3) {
+      lines.push(`Product category <strong>${pcdVal}</strong> — FPR varies; see Bias Audit tab for full breakdown.`);
+    }
+
+    // addr2 context
+    if (addr2Val === 87) {
+      lines.push(`Billing region is <strong>US</strong> (addr2=87) — FPR is 34.8%, the baseline. No regional uplift.`);
+    } else if (addr2Val === -999) {
+      lines.push(`Billing region is <strong>Unknown</strong> (addr2=−999) — non-US / unresolved addresses show 77–85% FPR. `
+        + `<span class="reg-badge reg-euai">EU AI Act risk</span>`);
+    } else if (addr2Val !== 87) {
+      lines.push(`Billing region <strong>${addr2Val}</strong> — non-US regions typically show elevated FPR (77–85%). `
+        + `<span class="reg-badge reg-cfpb">CFPB risk</span>`);
+    }
+
+    return lines;
+  }
+
+  async function runPredict() {
+    const btn = document.querySelector(".btn");
+    btn.disabled = true;
+    document.getElementById("pred-loader").style.display = "block";
+    document.getElementById("pred-result").style.display = "none";
+
+    const inputs = {
+      TransactionAmt: +document.getElementById("f-amt").value,
+      ProductCD:      +document.getElementById("f-pcd").value,
+      card1: 0, card2: 0, card3: 150,
+      card4: +document.getElementById("f-c4").value,
+      card5: 226,
+      card6: +document.getElementById("f-c6").value,
+      addr1: 0,
+      addr2: +document.getElementById("f-a2").value,
+      P_emaildomain: 0,
+      C1: +document.getElementById("f-C1").value,
+      C2: +document.getElementById("f-C2").value,
+      C3: 0, C4: 0, C5: 0,
+      C6: +document.getElementById("f-C6").value,
+      C7: 0, C8: 0,
+      C9: +document.getElementById("f-C9").value,
+      C10: 0,
+      D1: +document.getElementById("f-D1").value,
+      D2: -999, D3: -999, D4: -999,
+      M1: -1, M2: -1, M3: -1, M4: -1, M6: -1,
+    };
+
+    try {
+      const res = await fetch(`${BASE}/predict`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(inputs),
+      }).then(r => r.json());
+
+      const colorMap = { HIGH: "#D85A30", MEDIUM: "#f59e0b", LOW: "#1D9E75" };
+      document.getElementById("pred-score").textContent = (res.fraud_probability * 100).toFixed(1) + "%";
+      document.getElementById("pred-score").style.color = colorMap[res.risk_level];
+      document.getElementById("pred-label").textContent = res.risk_level + " RISK";
+      document.getElementById("pred-sub").textContent = res.flagged
+        ? "⚠ Transaction would be flagged for review"
+        : "✓ Transaction would pass (probability below 0.30 threshold)";
+
+      // Bias segment context
+      const overall = _auditData ? _auditData.overall_fpr : 0.398;
+      const biasLines = getBiasContext(inputs, overall);
+      const biasBox   = document.getElementById("bias-context");
+      const biasItems = document.getElementById("bias-context-items");
+      if (biasLines.length > 0) {
+        biasItems.innerHTML = biasLines
+          .map(l => `<div class="bias-context-item">${l}</div>`)
+          .join("");
+        biasBox.style.display = "block";
+      } else {
+        biasBox.style.display = "none";
+      }
+
+      document.getElementById("pred-result").style.display = "block";
+    } catch (e) {
+      alert("Prediction failed: " + e.message);
+    } finally {
+      btn.disabled = false;
+      document.getElementById("pred-loader").style.display = "none";
+    }
+  }
+
+  // Load all tabs eagerly
+  loadOverview();
+  loadAudit();
+  loadMonitor();
+</script>
+</body>
+</html>

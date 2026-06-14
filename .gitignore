@@ -1,8 +1,8 @@
-cat > .gitignore << 'EOF'
 data/
-outputs/*.pkl
-outputs/fraudwatch.db
 __pycache__/
 *.pyc
+*.pyo
 .venv/
-EOF
+venv/
+.env
+.DS_Store
