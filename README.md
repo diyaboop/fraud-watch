@@ -1,6 +1,6 @@
 # FraudWatch — Fraud Detection Bias Audit & Drift Monitor
 
- **Live Dashboard:** [fraudwatch.onrender.com](https://your-render-url.onrender.com)  
+ **Live Dashboard:** [fraudwatch.onrender.com](https://fraud-watch.onrender.com)  
 
 > End-to-end ML pipeline that trains a fraud detection classifier, audits it for 
 > demographic bias, and monitors performance drift — surfacing that credit card 
