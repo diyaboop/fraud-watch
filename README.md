@@ -1,5 +1,11 @@
 # FraudWatch — Fraud Detection Bias Audit & Drift Monitor
 
+ **Live Dashboard:** [fraudwatch.onrender.com](https://your-render-url.onrender.com)  
+
+> End-to-end ML pipeline that trains a fraud detection classifier, audits it for 
+> demographic bias, and monitors performance drift — surfacing that credit card 
+> users face a 65% higher wrongful block rate than debit users (Z=66.6, p<0.001).
+
 ## What it does
 End-to-end ML pipeline that trains a fraud detection model on real transaction data, 
 audits it for demographic bias, and monitors performance drift over time.
