@@ -2,6 +2,7 @@ import sqlite3
 import io
 import base64
 from pathlib import Path
+from functools import lru_cache
 
 import joblib
 import numpy as np
@@ -9,6 +10,7 @@ import pandas as pd
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from lime.lime_tabular import LimeTabularExplainer
 
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
@@ -258,6 +260,38 @@ class Transaction(BaseModel):
     M6: float = -1.0
 
 
+@lru_cache(maxsize=1)
+def _lime_explainer():
+    """Build a LIME explainer once using a background sample from train_transaction.csv.
+    Cached so it only loads on the first /explain call (~2–3s), then reused."""
+    features = joblib.load(FEATURES_PATH)
+    tx_df = pd.read_csv("data/train_transaction.csv", usecols=[f for f in features if f != "P_emaildomain"] + ["isFraud"])
+
+    # Keep only feature columns that exist; fill the rest with -999
+    available = [f for f in features if f in tx_df.columns]
+    for f in features:
+        if f not in tx_df.columns:
+            tx_df[f] = -999
+
+    # Encode object columns the same way train.py does
+    for col in tx_df.select_dtypes(include=["object"]).columns:
+        tx_df[col] = tx_df[col].astype("category").cat.codes
+
+    tx_df = tx_df.fillna(-999)
+
+    # Sample 2000 rows as the background distribution
+    bg = tx_df[features].sample(n=2000, random_state=42).values
+
+    explainer = LimeTabularExplainer(
+        training_data=bg,
+        feature_names=features,
+        class_names=["not_fraud", "fraud"],
+        mode="classification",
+        random_state=42,
+    )
+    return explainer, features
+
+
 @app.post("/predict")
 def predict(tx: Transaction):
     model = _model()
@@ -268,6 +302,45 @@ def predict(tx: Transaction):
         "fraud_probability": round(float(proba), 4),
         "flagged": flagged,
         "risk_level": "HIGH" if proba >= 0.6 else "MEDIUM" if proba >= 0.3 else "LOW",
+    }
+
+
+# ---------------------------------------------------------------------------
+# /explain  — LIME explanation for a single transaction
+# ---------------------------------------------------------------------------
+
+@app.post("/explain")
+def explain(tx: Transaction):
+    model = _model()
+    explainer, features = _lime_explainer()
+
+    instance = pd.DataFrame([tx.model_dump()])[features].values[0]
+
+    exp = explainer.explain_instance(
+        data_row=instance,
+        predict_fn=model.predict_proba,
+        num_features=10,
+        num_samples=500,
+        labels=(1,),  # explain the "fraud" class
+    )
+
+    # explain_instance returns weights for the fraud class (label=1)
+    raw = exp.as_list(label=1)
+
+    explanations = []
+    for feature_desc, weight in raw:
+        explanations.append({
+            "feature": feature_desc,
+            "weight": round(float(weight), 4),
+            "direction": "fraud" if weight > 0 else "not_fraud",
+        })
+
+    proba = model.predict_proba(instance.reshape(1, -1))[0][1]
+
+    return {
+        "prediction": round(float(proba), 4),
+        "predicted_class": "fraud" if proba >= 0.3 else "not fraud",
+        "explanations": explanations,
     }
 
 
