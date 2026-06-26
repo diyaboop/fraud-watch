@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FraudWatch Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --bg: #0f1117;
@@ -746,9 +745,7 @@
           <span style="color:var(--orange)">■ Orange</span> bars push away from fraud.
         </div>
         <div class="lime-loader" id="lime-loader">Computing explanation…</div>
-        <div class="lime-chart-wrap">
-          <canvas id="lime-chart" height="320"></canvas>
-        </div>
+        <div class="lime-chart-wrap" id="lime-chart-wrap"></div>
       </div>
     </div>
   </section>
@@ -1095,77 +1092,131 @@
     return lines;
   }
 
-  // Holds the Chart.js instance so we can destroy before re-rendering
-  let _limeChart = null;
-
   function renderLimeChart(explanations) {
-    // Sort by absolute weight descending so strongest drivers are on top
+    const wrap = document.getElementById("lime-chart-wrap");
+    wrap.innerHTML = "";
+
+    // Sort strongest driver to top
     const sorted = [...explanations].sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight));
 
-    const labels  = sorted.map(e => e.feature);
-    const values  = sorted.map(e => e.weight);
-    const colors  = sorted.map(e =>
-      e.direction === "fraud"
-        ? "rgba(29, 158, 117, 0.85)"    // green → toward fraud
-        : "rgba(216, 90, 48, 0.85)"     // orange → away from fraud
-    );
-    const borders = sorted.map(e =>
-      e.direction === "fraud" ? "#1D9E75" : "#D85A30"
-    );
+    const maxAbs   = Math.max(...sorted.map(e => Math.abs(e.weight)));
+    const W        = wrap.clientWidth || 680;
+    const ROW_H    = 36;
+    const LABEL_W  = 220;
+    const BAR_AREA = W - LABEL_W - 80;   // room for label + value text
+    const SVG_H    = sorted.length * ROW_H + 48;
 
-    const ctx = document.getElementById("lime-chart").getContext("2d");
-    if (_limeChart) _limeChart.destroy();
+    // Zero-line x position (all weights could be one-sided, so centre properly)
+    const minVal = Math.min(...sorted.map(e => e.weight));
+    const maxVal = Math.max(...sorted.map(e => e.weight));
+    const span   = maxVal - minVal || 0.001;
+    const zeroX  = LABEL_W + BAR_AREA * (Math.abs(minVal) / span);
 
-    _limeChart = new Chart(ctx, {
-      type: "bar",
-      data: {
-        labels,
-        datasets: [{
-          data: values,
-          backgroundColor: colors,
-          borderColor: borders,
-          borderWidth: 1,
-          borderRadius: 4,
-        }],
-      },
-      options: {
-        indexAxis: "y",
-        responsive: true,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: ctx => {
-                const w = ctx.parsed.x;
-                const dir = w > 0 ? "pushes toward fraud" : "pushes away from fraud";
-                return ` Weight ${w.toFixed(4)} — ${dir}`;
-              },
-            },
-            backgroundColor: "#1a1d27",
-            borderColor: "#2a2d3e",
-            borderWidth: 1,
-            titleColor: "#e2e8f0",
-            bodyColor: "#8892a4",
-          },
-        },
-        scales: {
-          x: {
-            grid: { color: "#2a2d3e" },
-            ticks: { color: "#8892a4", font: { size: 11 } },
-            title: {
-              display: true,
-              text: "LIME weight (positive = toward fraud)",
-              color: "#8892a4",
-              font: { size: 11 },
-            },
-          },
-          y: {
-            grid: { display: false },
-            ticks: { color: "#e2e8f0", font: { size: 11.5 } },
-          },
-        },
-      },
+    const GREEN  = "#1D9E75";
+    const ORANGE = "#D85A30";
+    const MUTED  = "#8892a4";
+    const TEXT   = "#e2e8f0";
+    const GRID   = "#2a2d3e";
+
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("width", "100%");
+    svg.setAttribute("viewBox", `0 0 ${W} ${SVG_H}`);
+    svg.style.display = "block";
+
+    // X-axis grid lines (4 ticks)
+    for (let i = 0; i <= 4; i++) {
+      const gx = LABEL_W + (BAR_AREA * i / 4);
+      const line = document.createElementNS(ns, "line");
+      line.setAttribute("x1", gx); line.setAttribute("y1", 0);
+      line.setAttribute("x2", gx); line.setAttribute("y2", SVG_H - 28);
+      line.setAttribute("stroke", GRID); line.setAttribute("stroke-width", "1");
+      svg.appendChild(line);
+
+      const tickVal = minVal + span * (i / 4);
+      const tick = document.createElementNS(ns, "text");
+      tick.setAttribute("x", gx); tick.setAttribute("y", SVG_H - 10);
+      tick.setAttribute("text-anchor", "middle");
+      tick.setAttribute("fill", MUTED); tick.setAttribute("font-size", "10");
+      tick.setAttribute("font-family", "monospace");
+      tick.textContent = tickVal.toFixed(3);
+      svg.appendChild(tick);
+    }
+
+    // Zero line
+    const zline = document.createElementNS(ns, "line");
+    zline.setAttribute("x1", zeroX); zline.setAttribute("y1", 0);
+    zline.setAttribute("x2", zeroX); zline.setAttribute("y2", SVG_H - 28);
+    zline.setAttribute("stroke", "#4a4a5a"); zline.setAttribute("stroke-width", "1.5");
+    svg.appendChild(zline);
+
+    // Rows
+    sorted.forEach((e, i) => {
+      const y       = i * ROW_H + 8;
+      const barLen  = (Math.abs(e.weight) / span) * BAR_AREA;
+      const isPos   = e.weight >= 0;
+      const color   = e.direction === "fraud" ? GREEN : ORANGE;
+      const barX    = isPos ? zeroX : zeroX - barLen;
+
+      // Alternating row background
+      if (i % 2 === 1) {
+        const bg = document.createElementNS(ns, "rect");
+        bg.setAttribute("x", 0); bg.setAttribute("y", y - 4);
+        bg.setAttribute("width", W); bg.setAttribute("height", ROW_H);
+        bg.setAttribute("fill", "rgba(255,255,255,0.02)");
+        svg.appendChild(bg);
+      }
+
+      // Label (truncate if too long)
+      const label = document.createElementNS(ns, "text");
+      label.setAttribute("x", LABEL_W - 8); label.setAttribute("y", y + 14);
+      label.setAttribute("text-anchor", "end");
+      label.setAttribute("fill", TEXT); label.setAttribute("font-size", "11.5");
+      label.setAttribute("font-family", "ui-monospace, monospace");
+      const featureText = e.feature.length > 26 ? e.feature.slice(0, 25) + "…" : e.feature;
+      label.textContent = featureText;
+
+      // Tooltip via <title>
+      const titleEl = document.createElementNS(ns, "title");
+      titleEl.textContent = `${e.feature}: ${e.weight > 0 ? "+" : ""}${e.weight.toFixed(4)} (${e.direction === "fraud" ? "pushes toward fraud" : "pushes away from fraud"})`;
+      label.appendChild(titleEl);
+      svg.appendChild(label);
+
+      // Bar
+      const rect = document.createElementNS(ns, "rect");
+      rect.setAttribute("x", barX); rect.setAttribute("y", y + 2);
+      rect.setAttribute("width", Math.max(barLen, 2));
+      rect.setAttribute("height", ROW_H - 10);
+      rect.setAttribute("fill", color);
+      rect.setAttribute("opacity", "0.85");
+      rect.setAttribute("rx", "3");
+      const rTitle = document.createElementNS(ns, "title");
+      rTitle.textContent = titleEl.textContent;
+      rect.appendChild(rTitle);
+      svg.appendChild(rect);
+
+      // Weight value label
+      const valX   = isPos ? barX + barLen + 5 : barX - 5;
+      const anchor = isPos ? "start" : "end";
+      const val = document.createElementNS(ns, "text");
+      val.setAttribute("x", valX); val.setAttribute("y", y + 14);
+      val.setAttribute("text-anchor", anchor);
+      val.setAttribute("fill", color); val.setAttribute("font-size", "10");
+      val.setAttribute("font-family", "ui-monospace, monospace");
+      val.textContent = (e.weight > 0 ? "+" : "") + e.weight.toFixed(4);
+      svg.appendChild(val);
     });
+
+    // X-axis label
+    const axLabel = document.createElementNS(ns, "text");
+    axLabel.setAttribute("x", LABEL_W + BAR_AREA / 2);
+    axLabel.setAttribute("y", SVG_H - 28);
+    axLabel.setAttribute("text-anchor", "middle");
+    axLabel.setAttribute("fill", MUTED); axLabel.setAttribute("font-size", "10");
+    axLabel.textContent = "LIME weight  (positive = pushes toward fraud)";
+    svg.appendChild(axLabel);
+
+    wrap.appendChild(svg);
   }
 
   async function runPredict() {
@@ -1252,11 +1303,10 @@
         })
         .catch(err => {
           limeLoader.style.display = "none";
-          limeLoader.textContent = "";
-          const errEl = document.createElement("div");
-          errEl.style.cssText = "color:var(--orange);font-size:12.5px;padding:8px 0";
-          errEl.textContent = "Could not load explanation: " + (typeof err === "string" ? err : err.message || "unknown error");
-          limeLoader.parentNode.insertBefore(errEl, limeLoader.nextSibling);
+          const wrap = document.getElementById("lime-chart-wrap");
+          wrap.innerHTML = `<div style="color:var(--orange);font-size:12.5px;padding:8px 0">
+            Could not load explanation: ${typeof err === "string" ? err : err.message || "unknown error"}
+          </div>`;
         });
 
     } catch (e) {
