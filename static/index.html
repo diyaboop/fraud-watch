@@ -1239,13 +1239,24 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(inputs),
       })
-        .then(r => r.json())
+        .then(r => {
+          if (!r.ok) return r.json().then(e => Promise.reject(e.detail || r.statusText));
+          return r.json();
+        })
         .then(exp => {
+          if (!exp.explanations || exp.explanations.length === 0) {
+            throw new Error("No explanations returned");
+          }
           limeLoader.style.display = "none";
           renderLimeChart(exp.explanations);
         })
-        .catch(() => {
-          limeLoader.textContent = "Could not load explanation.";
+        .catch(err => {
+          limeLoader.style.display = "none";
+          limeLoader.textContent = "";
+          const errEl = document.createElement("div");
+          errEl.style.cssText = "color:var(--orange);font-size:12.5px;padding:8px 0";
+          errEl.textContent = "Could not load explanation: " + (typeof err === "string" ? err : err.message || "unknown error");
+          limeLoader.parentNode.insertBefore(errEl, limeLoader.nextSibling);
         });
 
     } catch (e) {

@@ -263,42 +263,36 @@ class Transaction(BaseModel):
     M6: float = -1.0
 
 
+LIME_BG_PATH = Path("outputs/lime_background.npy")
+
+
 @lru_cache(maxsize=1)
 def _lime_explainer():
-    """Build a LIME explainer once using a background sample from train_transaction.csv.
-    Cached so it only loads on the first /explain call (~2–3s), then reused.
-    Falls back to a synthetic zero-filled background when data/ is not present (e.g. on Render)."""
+    """Build a LIME explainer once, cached for the process lifetime.
+
+    Background priority:
+      1. outputs/lime_background.npy  — pre-sampled 500 real rows (committed to git)
+      2. data/train_transaction.csv   — live sample when raw data is present
+    """
     features = joblib.load(FEATURES_PATH)
 
-    if not DATA_PATH.exists():
-        # No raw data on Render — use a zero-filled background so the explainer
-        # still works (explanations are relative to input, not background distribution)
-        bg = np.zeros((200, len(features)), dtype=np.float64)
-        explainer = LimeTabularExplainer(
-            training_data=bg,
-            feature_names=features,
-            class_names=["not_fraud", "fraud"],
-            mode="classification",
-            random_state=42,
+    if LIME_BG_PATH.exists():
+        bg = np.load(LIME_BG_PATH)
+    elif DATA_PATH.exists():
+        tx_df = pd.read_csv(DATA_PATH, usecols=[f for f in features if f in
+                            pd.read_csv(DATA_PATH, nrows=1).columns])
+        for f in features:
+            if f not in tx_df.columns:
+                tx_df[f] = -999
+        for col in tx_df.select_dtypes(include=["object"]).columns:
+            tx_df[col] = tx_df[col].astype("category").cat.codes
+        tx_df = tx_df.fillna(-999)
+        bg = tx_df[features].sample(n=500, random_state=42).values.astype(np.float64)
+    else:
+        raise RuntimeError(
+            "Neither outputs/lime_background.npy nor data/train_transaction.csv found. "
+            "Commit outputs/lime_background.npy to enable LIME on this deployment."
         )
-        return explainer, features
-
-    tx_df = pd.read_csv(DATA_PATH, usecols=[f for f in features if f != "P_emaildomain"] + ["isFraud"])
-
-    # Keep only feature columns that exist; fill the rest with -999
-    available = [f for f in features if f in tx_df.columns]
-    for f in features:
-        if f not in tx_df.columns:
-            tx_df[f] = -999
-
-    # Encode object columns the same way train.py does
-    for col in tx_df.select_dtypes(include=["object"]).columns:
-        tx_df[col] = tx_df[col].astype("category").cat.codes
-
-    tx_df = tx_df.fillna(-999)
-
-    # Sample 2000 rows as the background distribution
-    bg = tx_df[features].sample(n=2000, random_state=42).values
 
     explainer = LimeTabularExplainer(
         training_data=bg,
@@ -329,37 +323,40 @@ def predict(tx: Transaction):
 
 @app.post("/explain")
 def explain(tx: Transaction):
-    model = _model()
-    explainer, features = _lime_explainer()
+    try:
+        model = _model()
+        explainer, features = _lime_explainer()
 
-    instance = pd.DataFrame([tx.model_dump()])[features].values[0]
+        instance = pd.DataFrame([tx.model_dump()])[features].values[0]
 
-    exp = explainer.explain_instance(
-        data_row=instance,
-        predict_fn=model.predict_proba,
-        num_features=10,
-        num_samples=500,
-        labels=(1,),  # explain the "fraud" class
-    )
+        exp = explainer.explain_instance(
+            data_row=instance,
+            predict_fn=model.predict_proba,
+            num_features=10,
+            num_samples=200,   # reduced from 500 — fast enough, avoids Render timeouts
+            labels=(1,),       # explain the "fraud" class
+        )
 
-    # explain_instance returns weights for the fraud class (label=1)
-    raw = exp.as_list(label=1)
+        raw = exp.as_list(label=1)
 
-    explanations = []
-    for feature_desc, weight in raw:
-        explanations.append({
-            "feature": feature_desc,
-            "weight": round(float(weight), 4),
-            "direction": "fraud" if weight > 0 else "not_fraud",
-        })
+        explanations = [
+            {
+                "feature": feature_desc,
+                "weight": round(float(weight), 4),
+                "direction": "fraud" if weight > 0 else "not_fraud",
+            }
+            for feature_desc, weight in raw
+        ]
 
-    proba = model.predict_proba(instance.reshape(1, -1))[0][1]
+        proba = model.predict_proba(instance.reshape(1, -1))[0][1]
 
-    return {
-        "prediction": round(float(proba), 4),
-        "predicted_class": "fraud" if proba >= 0.3 else "not fraud",
-        "explanations": explanations,
-    }
+        return {
+            "prediction": round(float(proba), 4),
+            "predicted_class": "fraud" if proba >= 0.3 else "not fraud",
+            "explanations": explanations,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 # ---------------------------------------------------------------------------
