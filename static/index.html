@@ -536,6 +536,7 @@
   <button onclick="show('audit', this)">Bias Audit</button>
   <button onclick="show('monitor', this)">Monitor</button>
   <button onclick="show('predict', this)">Predict</button>
+  <button onclick="show('explain', this)">Explainability</button>
 </nav>
 
 <main>
@@ -748,6 +749,46 @@
         <div class="lime-chart-wrap">
           <canvas id="lime-chart" height="320"></canvas>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── EXPLAINABILITY ──────────────────────────────────────────────────────── -->
+  <section id="explain" class="section">
+    <div class="section-title">Explainability</div>
+    <div class="section-sub">Global feature importance (SHAP) and per-transaction explanations (LIME)</div>
+
+    <div class="card">
+      <div class="card-title">SHAP Summary — Global Feature Importance</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px">
+        SHAP values show how much each feature contributed to fraud predictions across 1,000 transactions.
+        Each dot is one transaction; color indicates feature value (red = high, blue = low).
+        Dots to the right increase the fraud prediction; dots to the left decrease it.
+      </p>
+      <div id="shap-img-wrap" style="text-align:center">
+        <img id="shap-img" class="chart-img" alt="SHAP summary plot" style="display:none;max-width:100%" />
+        <div id="shap-loader" style="color:var(--muted);font-size:13px;padding:32px 0">Loading SHAP summary…</div>
+        <div id="shap-error" style="display:none;color:var(--orange);font-size:13px;padding:24px 0"></div>
+      </div>
+      <div style="margin-top:20px;background:rgba(83,74,183,0.08);border:1px solid rgba(83,74,183,0.25);border-radius:8px;padding:14px 16px;font-size:13px;line-height:1.7;color:var(--text)">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#9d96f5;margin-bottom:8px">Key Takeaways</div>
+        <div style="margin-bottom:4px">› <strong>D3, D2, and D1</strong> (time since last transaction) are the strongest fraud signals — unusually short or missing time-deltas strongly predict fraud.</div>
+        <div style="margin-bottom:4px">› <strong>TransactionAmt</strong> — very high or very low amounts are disproportionately associated with fraud.</div>
+        <div style="margin-bottom:4px">› <strong>card6</strong> (card type) is among the top global drivers, confirming the bias audit finding — credit cards are systematically flagged more often than debit cards.</div>
+        <div>› <strong>C-features</strong> (count variables) carry significant weight, suggesting transaction frequency patterns are strong fraud indicators.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">SHAP Waterfall — Single Transaction Breakdown</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px">
+        A waterfall chart for a representative transaction, showing how each feature pushes the prediction above or below the baseline fraud rate.
+        Use the Predict tab to generate a LIME explanation for any custom transaction.
+      </p>
+      <div id="shap-wf-wrap" style="text-align:center">
+        <img id="shap-wf-img" class="chart-img" alt="SHAP waterfall plot" style="display:none;max-width:100%" />
+        <div id="shap-wf-loader" style="color:var(--muted);font-size:13px;padding:32px 0">Loading waterfall…</div>
+        <div id="shap-wf-error" style="display:none;color:var(--orange);font-size:13px;padding:24px 0"></div>
       </div>
     </div>
   </section>
@@ -1215,10 +1256,37 @@
     }
   }
 
+  function loadExplain() {
+    // SHAP summary
+    const img = document.getElementById("shap-img");
+    const loader = document.getElementById("shap-loader");
+    const err = document.getElementById("shap-error");
+    img.onload = () => { loader.style.display = "none"; img.style.display = "block"; };
+    img.onerror = () => {
+      loader.style.display = "none";
+      err.style.display = "block";
+      err.textContent = "SHAP summary image not available. Run explainability.py to generate it.";
+    };
+    img.src = `${BASE}/shap-summary`;
+
+    // SHAP waterfall
+    const wfImg = document.getElementById("shap-wf-img");
+    const wfLoader = document.getElementById("shap-wf-loader");
+    const wfErr = document.getElementById("shap-wf-error");
+    wfImg.onload = () => { wfLoader.style.display = "none"; wfImg.style.display = "block"; };
+    wfImg.onerror = () => {
+      wfLoader.style.display = "none";
+      wfErr.style.display = "block";
+      wfErr.textContent = "SHAP waterfall image not available. Run explainability.py to generate it.";
+    };
+    wfImg.src = `${BASE}/shap-waterfall`;
+  }
+
   // Load all tabs eagerly
   loadOverview();
   loadAudit();
   loadMonitor();
+  loadExplain();
 </script>
 </body>
 </html>

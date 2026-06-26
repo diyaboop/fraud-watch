@@ -17,6 +17,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
+SHAP_SUMMARY_PATH = Path("outputs/shap_summary.png")
+DATA_PATH = Path("data/train_transaction.csv")
+
 app = FastAPI(title="FraudWatch API", version="1.0")
 
 DB_PATH = Path("outputs/fraudwatch.db")
@@ -263,9 +266,24 @@ class Transaction(BaseModel):
 @lru_cache(maxsize=1)
 def _lime_explainer():
     """Build a LIME explainer once using a background sample from train_transaction.csv.
-    Cached so it only loads on the first /explain call (~2–3s), then reused."""
+    Cached so it only loads on the first /explain call (~2–3s), then reused.
+    Falls back to a synthetic zero-filled background when data/ is not present (e.g. on Render)."""
     features = joblib.load(FEATURES_PATH)
-    tx_df = pd.read_csv("data/train_transaction.csv", usecols=[f for f in features if f != "P_emaildomain"] + ["isFraud"])
+
+    if not DATA_PATH.exists():
+        # No raw data on Render — use a zero-filled background so the explainer
+        # still works (explanations are relative to input, not background distribution)
+        bg = np.zeros((200, len(features)), dtype=np.float64)
+        explainer = LimeTabularExplainer(
+            training_data=bg,
+            feature_names=features,
+            class_names=["not_fraud", "fraud"],
+            mode="classification",
+            random_state=42,
+        )
+        return explainer, features
+
+    tx_df = pd.read_csv(DATA_PATH, usecols=[f for f in features if f != "P_emaildomain"] + ["isFraud"])
 
     # Keep only feature columns that exist; fill the rest with -999
     available = [f for f in features if f in tx_df.columns]
@@ -342,6 +360,25 @@ def explain(tx: Transaction):
         "predicted_class": "fraud" if proba >= 0.3 else "not fraud",
         "explanations": explanations,
     }
+
+
+# ---------------------------------------------------------------------------
+# /shap-summary  — serve the pre-generated SHAP summary PNG
+# ---------------------------------------------------------------------------
+
+@app.get("/shap-summary")
+def shap_summary():
+    if not SHAP_SUMMARY_PATH.exists():
+        raise HTTPException(404, "SHAP summary image not found. Run explainability.py to generate it.")
+    return FileResponse(SHAP_SUMMARY_PATH, media_type="image/png")
+
+
+@app.get("/shap-waterfall")
+def shap_waterfall():
+    path = Path("outputs/shap_waterfall.png")
+    if not path.exists():
+        raise HTTPException(404, "SHAP waterfall image not found. Run explainability.py to generate it.")
+    return FileResponse(path, media_type="image/png")
 
 
 # ---------------------------------------------------------------------------
