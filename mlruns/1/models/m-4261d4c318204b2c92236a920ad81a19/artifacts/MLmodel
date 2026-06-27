@@ -1,0 +1,23 @@
+artifact_path: /Users/diyamanna/fraudwatch/mlruns/1/models/m-4261d4c318204b2c92236a920ad81a19/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.skops
+    predict_fn: predict
+    python_version: 3.11.9
+  sklearn:
+    code: null
+    pickled_model: model.skops
+    serialization_format: skops
+    sklearn_version: 1.9.0
+    skops_trusted_types: null
+mlflow_version: 3.14.0
+model_id: m-4261d4c318204b2c92236a920ad81a19
+model_size_bytes: 15038074
+model_uuid: m-4261d4c318204b2c92236a920ad81a19
+prompts: null
+run_id: 567077e1b93d4445902a23ef63caceb8
+utc_time_created: '2026-06-27 20:34:22.735573'
